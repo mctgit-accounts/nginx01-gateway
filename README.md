@@ -26,7 +26,7 @@ covers the **whole gateway infrastructure and its security model**.
 | `nginx01-gateway` (edge/DMZ) | 10.20.30.51 / 192.168.0.51 | **live** — nginx 1.28.3, wildcard TLS, fail2ban, ufw |
 | `app1..app5.mankatotech.com` | → 64.61.212.98 | DNS live; **no backends yet** |
 | Wazuh agent on the gateway | — | **pending** — enrollment broker unreachable |
-| `webserver01` (app tier) | 10.100.200.70 | **planned** — see `docs/webserver01-build-plan.md` |
+| `webserver01` (app tier) | 10.100.200.70 | **live** — hardened, containment verified (see `docs/webserver01-BUILD-NOTES.md`) |
 | PostgreSQL (data tier) | TBD | **planned** |
 | Logging platform (`agents`/`manage`) | 10.100.200.50→.60 | separate build (`~/Grafana`) |
 

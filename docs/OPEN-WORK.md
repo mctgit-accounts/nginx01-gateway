@@ -14,37 +14,57 @@ Last updated: 2026-11-04
 - **Edge hardening** — ufw (SSH LAN-only, 80/443 public-only) + fail2ban
   (external-scoped, 4 jails).
 - **DNS** — DreamHost zone published; `app1..app5` → `64.61.212.98`.
+- **App tier `webserver01`** built (10.100.200.70, single NIC, autostart on) and
+  hardened — see `docs/webserver01-BUILD-NOTES.md`. Containment verified:
+  `canary -> app:8080` blocked; egress OK.
 - **Config of record** — this repo.
 
 ## Open
 
-### 1. Wazuh agent on the edge — BLOCKED
-Enrollment broker `10.100.200.100:8443` is unreachable from the gateway (1514
-is open). Need a WatchGuard allow, or a manual key exchange. Then add
-`deploy/wazuh/localfiles.conf` and the manager decoder/rules.
+### 1. Wazuh agent on the edge — BLOCKED on one WatchGuard rule
+The gateway reaches `10.100.200.50:1514` (agent→manager) but **not**
+`10.100.200.100:8443` (the mct-enrollment broker).
 
-### 2. `webserver01` app tier — planned
-Build per `docs/webserver01-build-plan.md`. Needs the WatchGuard rules
-(edge→app, app→internet egress, mgmt→app SSH).
+Diagnosis: the gateway egresses via its LAN address (`192.168.0.51`, default
+route chat0). The automation host's ufw **already allows** 8443 from
+`192.168.0.0/24`, so the block is the **WatchGuard** (no rule for this path,
+whereas 1514 to `.50` is allowed).
 
-### 3. PostgreSQL data tier — planned
-See ADR 0005. Placement (dedicated host vs the app tier), sizing and backups to
-be decided.
+**Change needed (WatchGuard, not the hosts):**
+- Allow **`192.168.0.51` → `10.100.200.100`, TCP 8443** (enable logging).
+- No host firewall change required.
 
-### 4. First real app
-`app1..app5` currently hit the catch-all. Point one at a backend with
-`sudo add-app app1 10.100.200.70:<port>` once `webserver01` exists.
+Then: install `wazuh-agent` on the gateway, enroll, add
+`deploy/wazuh/localfiles.conf` + the manager decoder/rules.
 
-### 5. WatchGuard (user)
+Optional: the gateway egressing via the LAN is unusual for a DMZ host. If you'd
+rather it use the edge path, add a route on the gateway
+(`10.100.200.0/24 via 10.20.30.1 dev web0`) and allow from `10.20.30.51` instead.
+
+### 2. WatchGuard: edge → app tier
+`webserver01` is built but the edge cannot reach it yet (verified blocked).
+Add: allow **`10.20.30.51` → `10.100.200.70` : app ports** (8080–8099 for now).
+
+### 3. App runtime on `webserver01`
+Install Node LTS and/or Docker; ship app logs to Wazuh.
+
+### 4. PostgreSQL data tier — planned
+ADR 0005. Placement, sizing, backups to decide.
+
+### 5. First real app
+`app1..app5` hit the catch-all. Once rules 2–3 are done:
+`sudo add-app app1 10.100.200.70:<port>`.
+
+### 6. WatchGuard (user)
 - Reserve `10.20.30.51` + `192.168.0.51` in DHCP.
 - Confirm `64.61.212.98` is bound for **inbound** DNAT.
-- Add the app-tier rules (see build plan).
+- Add rules 1 and 2 above.
 
-### 6. Front-door consolidation decision
-`mct-opencode` runs a parallel Caddy front door (`mct-publish`, ports
-4100–4999). Decide whether the nginx gateway supersedes it or they coexist.
+### 7. Front-door consolidation
+`mct-opencode` runs a parallel Caddy front door (`mct-publish`). Decide whether
+the nginx gateway supersedes it or they coexist.
 
-### 7. Not yet addressed
-- Gateway HA (single point of failure).
-- Backups for gateway config/state.
+### 8. Not yet addressed
+- Gateway HA (single point of failure); backups for gateway config/state.
 - Monitoring/alerting for certificate expiry and app health.
+- Repo rename to reflect the broader scope (needs repo-admin).
