@@ -1,0 +1,31 @@
+# Per-app vhost template. Rendered by add-app.sh — do not edit by hand.
+# Placeholders: @@HOSTNAME@@ @@SLUG@@ @@BACKEND@@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name @@HOSTNAME@@;
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name @@HOSTNAME@@;
+
+    ssl_certificate     /etc/nginx/ssl/mankatotech/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/mankatotech/privkey.pem;
+    include snippets/tls-common.conf;
+
+    access_log /var/log/nginx/@@SLUG@@.access.log json;
+    error_log  /var/log/nginx/@@SLUG@@.error.log warn;
+
+    location / {
+        limit_req  zone=mct_general burst=40 nodelay;
+        limit_conn mct_conn 50;
+        limit_req_status  429;
+        limit_conn_status 429;
+        proxy_pass http://@@BACKEND@@;
+        include snippets/proxy-common.conf;
+    }
+}

@@ -1,0 +1,32 @@
+# Wazuh manager-side decoder + rule for fail2ban events.
+# Add to the manager (10.100.200.50): /var/ossec/etc/decoders/local_decoder.xml
+# and /var/ossec/etc/rules/local_rules.xml, then restart wazuh-manager.
+#
+# fail2ban.log line format:
+#   2026-11-04 15:20:00,123 fail2ban.actions [1234]: NOTICE  [sshd] Ban 1.2.3.4
+#   2026-11-04 15:20:00,123 fail2ban.actions [1234]: NOTICE  [sshd] Unban 1.2.3.4
+
+<!-- local_decoder.xml -->
+<decoder name="fail2ban">
+  <program_name>fail2ban.actions</program_name>
+</decoder>
+
+<decoder name="fail2ban-action">
+  <parent>fail2ban</parent>
+  <prematch>\[(\w+)\] (Ban|Unban) </prematch>
+  <regex offset="after_prematch">(\S+)$</regex>
+  <order>jail,action,srcip</order>
+</decoder>
+
+<!-- local_rules.xml -->
+<group name="fail2ban,">
+  <rule id="100700" level="3">
+    <decoded_as>fail2ban</decoded_as>
+    <description>fail2ban: $(action) $(srcip) in jail $(jail)</description>
+  </rule>
+  <rule id="100701" level="6">
+    <if_sid>100700</if_sid>
+    <action>Ban</action>
+    <description>fail2ban: banned $(srcip) in jail $(jail)</description>
+  </rule>
+</group>

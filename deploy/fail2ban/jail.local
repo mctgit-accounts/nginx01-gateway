@@ -1,0 +1,45 @@
+# fail2ban — nginx01-gateway (external-facing).
+# Shipped as /etc/fail2ban/jail.d/nginx01-gateway.local
+#
+# Scoping: all internal networks are in `ignoreip`, so bans only ever apply to
+# internet sources arriving on web0. ufw is the ban action (matches the estate).
+[DEFAULT]
+ignoreip = 127.0.0.1/8 ::1 192.168.0.0/24 10.100.200.0/24 10.20.30.0/24 10.44.0.0/24
+banaction = ufw
+banaction_allports = ufw
+backend = auto
+bantime  = 3600
+findtime = 600
+maxretry = 5
+
+[sshd]
+enabled  = true
+port     = 22
+logpath  = %(sshd_log)s
+maxretry = 5
+bantime  = 3600
+
+# Flood / rate-limit hits (nginx error log, from limit_req/limit_conn).
+[nginx-limit-req]
+enabled  = true
+logpath  = /var/log/nginx/*.error.log
+maxretry = 5
+findtime = 60
+bantime  = 1800
+
+# Auth failures / blocked requests / bad-host scanners (nginx JSON access log).
+[nginx-gateway-json]
+enabled  = true
+filter   = nginx-gateway-json
+logpath  = /var/log/nginx/*.access.log
+maxretry = 20
+findtime = 300
+bantime  = 3600
+
+# Repeat offenders.
+[recidive]
+enabled  = true
+logpath  = /var/log/fail2ban.log
+maxretry = 3
+findtime = 86400
+bantime  = 604800
