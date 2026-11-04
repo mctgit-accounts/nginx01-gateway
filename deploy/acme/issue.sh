@@ -6,8 +6,13 @@
 #   ACME_EMAIL=ops@example.net ./issue.sh --production  # real cert + nginx reload
 #
 # Requires certbot and the scoped DreamHost key at /etc/mct-acme/dreamhost-dns.key
-# (see dreamhost-auth-hook.sh). Requests one cert for mankatotech.com +
+# (see dreamhost-auth-hook.sh). Requests ONE wildcard cert for
 # *.mankatotech.com (covers app1..appN and any future host).
+#
+# NOTE: wildcard-only on purpose. The auth hook removes "stale" TXT values for
+# the same name, so a cert needing two simultaneous values at
+# _acme-challenge.mankatotech.com (i.e. apex + wildcard) would break. The apex
+# (mankatotech.com) is served by DreamHost shared hosting, not this gateway.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 
@@ -46,7 +51,7 @@ fi
     --key-type rsa --rsa-key-size 3072 \
     --manual-auth-hook "$here/dreamhost-auth-hook.sh" \
     --manual-cleanup-hook "$here/dreamhost-cleanup-hook.sh" \
-    -d mankatotech.com -d '*.mankatotech.com' \
+    -d '*.mankatotech.com' \
     "${flags[@]}"
 
 echo "issue.sh: ${mode#--} issuance complete (lineage per --cert-name above)"

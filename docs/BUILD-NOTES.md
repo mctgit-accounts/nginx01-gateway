@@ -61,12 +61,29 @@ sudo VIRTINSTALL_OSINFO_DISABLE_REQUIRE=1 virt-install --name nginx01-gateway \
 - Build SSH key: `~/vms/nginx01-gateway/id_nginx01_gateway` (pub embedded in seed)
 - Repo deploy key: `~/.ssh/id_mct_nginx_gateway_repo` (for the gateway repo)
 
+## Hardening — 2026-11-04
+- ufw: deny inbound; SSH only on `chat0`; 80/443 only on `web0`.
+- fail2ban installed (jails: `sshd`, `nginx-limit-req`, `nginx-gateway-json`
+  401/403/444, `recidive`); external-scoped via `ignoreip`; bans via `ufw`.
+- nginx: per-IP `limit_req`/`limit_conn`; catch-all 444 logged to
+  `blocked.access.log` for fail2ban/Wazuh.
+
+## TLS — 2026-11-04
+- Production Let's Encrypt wildcard `*.mankatotech.com` issued via DreamHost
+  DNS-01 (lineage `mankatotech-wildcard`, expires 2027-02-02); installed at
+  `/etc/nginx/ssl/mankatotech/` by the deploy hook; `certbot.timer` renews.
+- Wildcard-only on purpose: the apex stays on DreamHost shared hosting, and the
+  auth hook cannot handle two simultaneous TXT values at the same name.
+- Staging lineage exercised (success) then deleted.
+- DNS: DreamHost zone republished (SOA serial `2026110400`);
+  `app1..app5.mankatotech.com -> 64.61.212.98` resolve publicly.
+
 ## Open / next
+- **Wazuh agent** — install + enroll, then add the localfile blocks
+  (`deploy/wazuh/localfiles.conf`) and the manager decoder/rules
+  (`deploy/wazuh/manager-decoder-and-rules.xml`). BLOCKED: the enrollment broker
+  `10.100.200.100:8443` is not reachable from the gateway (1514 is).
 - WatchGuard (user): reserve `10.20.30.51` + `192.168.0.51` in DHCP; confirm
-  `64.61.212.98` is bound for inbound DNAT (docs flagged `.98` as egress-only,
-  unverified inbound).
-- DNS: `app1..app5.mankatotech.com -> 64.61.212.98` added but **not published**
-  by DreamHost nameservers yet (SOA serial unchanged at 2026-11-02).
-- Next build: nginx config set (snippets + per-app vhosts), wildcard cert
-  (`*.mankatotech.com` via DreamHost DNS-01), `add-app.sh` template, ufw rules,
-  Wazuh log shipping.
+  `64.61.212.98` is bound for inbound DNAT.
+- Real apps: point `app1..app5` at backends with `sudo add-app <app> <host:port>`.
+- Config of record: `mctgit-accounts/nginx01-gateway`.
