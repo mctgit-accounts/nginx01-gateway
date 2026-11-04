@@ -1,59 +1,55 @@
-# nginx01-gateway
+# MCT web gateway — infrastructure & security
 
-Single public front door for `appN.mankatotech.com` app hosting. nginx terminates
-TLS (wildcard `*.mankatotech.com` via Let's Encrypt DNS-01 / DreamHost) and
-reverse-proxies each hostname to a backend by name.
+Source of truth for the MCT public web gateway: the nginx reverse-proxy front
+door, the trust zones it sits in, the app tier that builds/serves custom apps,
+the shared application database, and the security controls around all of it.
 
-Host: `nginx01-gateway` (KVM on MCT-AUTOMATION-HOST)
-- `web0` 10.20.30.51/24  — public/app side (WatchGuard DNAT 64.61.212.98:80,443)
-- `chat0` 192.168.0.51/24 — LAN admin side (SSH)
+This repo was originally scoped to the single `nginx01-gateway` host. It now
+covers the **whole gateway infrastructure and its security model**.
+
+## Scope
+
+- **Public front door** — nginx TLS termination + name-based routing for
+  `appN.mankatotech.com`, wildcard certificate.
+- **Trust zones & tiering** — edge/DMZ, app tier, management; default-deny
+  between zones.
+- **App tier** — `webserver01`, where custom apps are built, tested and served.
+- **Data tier** — shared PostgreSQL for application data.
+- **Edge security** — ufw, fail2ban, per-IP rate limits, JSON access logs →
+  Wazuh.
+- **Certificates** — Let's Encrypt wildcard via DreamHost DNS-01.
+
+## Current state
+
+| Component | Address | State |
+|---|---|---|
+| `nginx01-gateway` (edge/DMZ) | 10.20.30.51 / 192.168.0.51 | **live** — nginx 1.28.3, wildcard TLS, fail2ban, ufw |
+| `app1..app5.mankatotech.com` | → 64.61.212.98 | DNS live; **no backends yet** |
+| Wazuh agent on the gateway | — | **pending** — enrollment broker unreachable |
+| `webserver01` (app tier) | 10.100.200.70 | **planned** — see `docs/webserver01-build-plan.md` |
+| PostgreSQL (data tier) | TBD | **planned** |
+| Logging platform (`agents`/`manage`) | 10.100.200.50→.60 | separate build (`~/Grafana`) |
 
 ## Layout
 
 ```
 deploy/
-  nginx/
-    log-format.conf                 # JSON access log format (http context)
-    conf.d/10-map.conf              # $connection_upgrade map (WebSocket)
-    conf.d/10-limits.conf           # limit_req / limit_conn zones
-    conf.d/10-default.conf          # catch-all: HTTP->HTTPS, unknown host -> 444
-    snippets/proxy-common.conf      # proxy headers + timeouts
-    snippets/tls-common.conf        # TLS params + security headers
-    templates/app.vhost.template    # per-app vhost template (@@PLACEHOLDERS@@)
-  scripts/
-    install.sh                      # deploy nginx configs to the host (root)
-    add-app.sh                      # add-app <app> <host:port> [fqdn]
-    harden.sh                       # ufw (external-scoped) + fail2ban (root)
-  fail2ban/
-    jail.local                      # jails: sshd, nginx-limit-req, json 401/403/444, recidive
-    filter.d/nginx-gateway-json.conf
-  wazuh/
-    localfiles.conf                 # agent localfile blocks (nginx + fail2ban)
-    manager-decoder-and-rules.xml   # custom fail2ban decoder + rules for the manager
-  acme/                             # Let's Encrypt DNS-01 (DreamHost) hooks
+  nginx/        log format, map, limits, catch-all, snippets, vhost template
+  scripts/      install.sh, add-app.sh, harden.sh
+  fail2ban/     jail.local + nginx-gateway-json filter
+  acme/         DreamHost DNS-01 hooks, issue.sh, deploy-hook.sh
+  wazuh/        agent localfile blocks + manager decoder/rules
+docs/
+  architecture.md          zones, tiers, topology, data flows
+  decisions/               architecture decision records (ADRs)
+  webserver01-build-plan.md  app-tier VM plan
+  BUILD-NOTES.md           nginx01-gateway host build notes
+  OPEN-WORK.md             running open-items queue
 ```
 
-## Security posture
+## Docs
 
-- **ufw:** deny inbound; SSH only on `chat0` (LAN), 80/443 only on `web0` (public).
-- **fail2ban:** external-scoped (internal nets in `ignoreip`); bans via `ufw`.
-- **nginx:** per-IP `limit_req`/`limit_conn`; unknown hostnames get 444 and are
-  logged to `blocked.access.log` for fail2ban/Wazuh.
-- **Wazuh:** agent ships nginx access (JSON) + error + fail2ban logs to the manager.
-
-## Add an app
-
-```bash
-sudo add-app app6 10.100.200.20:8080
-# -> serves app6.mankatotech.com, proxies to http://10.100.200.20:8080
-# -> access log /var/log/nginx/app6.access.log (JSON)
-```
-
-DNS (`app6.mankatotech.com -> 64.61.212.98`) and the wildcard cert already cover
-new hosts; only the backend needs to exist.
-
-## Install / update
-
-```bash
-sudo deploy/scripts/install.sh
-```
+- **[docs/architecture.md](docs/architecture.md)** — the zone/tier model.
+- **[docs/decisions/](docs/decisions/)** — why each choice was made.
+- **[docs/webserver01-build-plan.md](docs/webserver01-build-plan.md)** — app tier.
+- **[docs/OPEN-WORK.md](docs/OPEN-WORK.md)** — what's left.
