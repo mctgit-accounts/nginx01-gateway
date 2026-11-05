@@ -21,25 +21,34 @@ Last updated: 2026-11-04
 
 ## Open
 
-### 1. Wazuh agent on the edge — BLOCKED on one WatchGuard rule
-The gateway reaches `10.100.200.50:1514` (agent→manager) but **not**
-`10.100.200.100:8443` (the mct-enrollment broker).
+### 1. Wazuh agent on the edge — BLOCKED (asymmetric routing)
+The gateway reaches `10.100.200.50:1514` (agent→manager) but not
+`10.100.200.100:8443` (the mct-enrollment broker). The WatchGuard 8443 rule
+(source `192.168.0.51`) is in place, but the TLS handshake stalls.
 
-Diagnosis: the gateway egresses via its LAN address (`192.168.0.51`, default
-route chat0). The automation host's ufw **already allows** 8443 from
-`192.168.0.0/24`, so the block is the **WatchGuard** (no rule for this path,
-whereas 1514 to `.50` is allowed).
+**Root cause: asymmetric routing.** The gateway sends the request to
+`10.100.200.100` via the WatchGuard, but the broker — on the **multi-homed
+automation host** (`10.100.200.100` + `192.168.0.186/.185`) — replies to
+`192.168.0.51` directly out its **LAN NIC**. The Firebox never sees the
+handshake complete and drops the data. (The Wazuh server itself,
+`10.100.200.50`, is single-homed and works fine.)
 
-**Change needed (WatchGuard, not the hosts):**
-- Allow **`192.168.0.51` → `10.100.200.100`, TCP 8443** (enable logging).
-- No host firewall change required.
+**Fix options (decide later):**
+- **SNAT on the WatchGuard 8443 rule** — broker sees the firewall's internal IP,
+  reply is forced back through the Firebox. No host changes.
+- **LAN-direct** — broker also binds `192.168.0.186:8443`; gateway uses the
+  `mct-automation-host` DNS name (already a cert SAN) via `/etc/hosts`. Internal
+  path; lets you close 8443.
+- **Edge egress** — allow `10.20.30.51 → 10.100.200.0/24` (8443 + 1514) and
+  route `10.100.200.0/24 via 10.20.30.1 dev web0` on the gateway.
+
+**Separate concern:** the enrollment broker (a credential issuer) sits on the
+all-important automation host. A dedicated small VM/LXC is the better long-term
+home — it also removes the multi-homing asymmetry. (Scoping rationale:
+`~/wazuh-siemxdr/docs/enrollment-service-wazuh-scoping.md` §5.5.)
 
 Then: install `wazuh-agent` on the gateway, enroll, add
 `deploy/wazuh/localfiles.conf` + the manager decoder/rules.
-
-Optional: the gateway egressing via the LAN is unusual for a DMZ host. If you'd
-rather it use the edge path, add a route on the gateway
-(`10.100.200.0/24 via 10.20.30.1 dev web0`) and allow from `10.20.30.51` instead.
 
 ### 2. WatchGuard: edge → app tier
 `webserver01` is built but the edge cannot reach it yet (verified blocked).
