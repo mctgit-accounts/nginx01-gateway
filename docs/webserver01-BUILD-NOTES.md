@@ -31,6 +31,17 @@ name. See `docs/webserver01-build-plan.md` and ADRs 0002/0003/0004.
   - out: `53/udp`, `80,443/tcp`, `123/udp`, `22/tcp` (builds/updates).
 - Verified: `canary -> 10.100.200.70:8080` **blocked**; localhost OK.
 
+## App isolation (Unix accounts) — applied 2026-11-04
+- Framework installed by `deploy/scripts/install-app-isolation.sh`:
+  `webapp@.service` (systemd template) + `/usr/local/bin/add-appuser`.
+- Each app: its own system user/group and `/srv/apps/<app>` (0700); runs via
+  `systemctl enable --now webapp@<app>.service` as `User=<app>`.
+- Unit hardening: `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`,
+  `PrivateDevices`, `NoNewPrivileges`, restricted address families/namespaces.
+- Limits: `CPUQuota=100%`, `MemoryMax=512M`, `TasksMax=256`.
+- Verified: two apps run as separate users; one cannot read the other's files
+  (Permission denied). See ADR 0008.
+
 ## Build caveat (important for future VMs)
 The first cloud-init NIC **rename** (`set-name`) fails with `[busy]` when it is
 the only NIC, leaving the guest with no address. Fix: **do not use `set-name`** on

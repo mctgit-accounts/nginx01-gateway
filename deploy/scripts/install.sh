@@ -10,11 +10,13 @@ install -d /etc/nginx/snippets /etc/nginx/templates /etc/nginx/conf.d \
 # conf.d loads alphabetically — the log format must be defined before use.
 rm -f /etc/nginx/conf.d/00-map.conf /etc/nginx/conf.d/00-limits.conf /etc/nginx/conf.d/00-default.conf
 install -m 0644 "$here/nginx/log-format.conf"            /etc/nginx/conf.d/00-log-format.conf
+install -m 0644 "$here/nginx/conf.d/00-http-hardening.conf" /etc/nginx/conf.d/00-http-hardening.conf
 install -m 0644 "$here/nginx/conf.d/10-map.conf"         /etc/nginx/conf.d/10-map.conf
 install -m 0644 "$here/nginx/conf.d/10-limits.conf"      /etc/nginx/conf.d/10-limits.conf
 install -m 0644 "$here/nginx/conf.d/10-default.conf"     /etc/nginx/conf.d/10-default.conf
 install -m 0644 "$here/nginx/snippets/proxy-common.conf" /etc/nginx/snippets/proxy-common.conf
 install -m 0644 "$here/nginx/snippets/tls-common.conf"   /etc/nginx/snippets/tls-common.conf
+install -m 0644 "$here/nginx/snippets/method-hygiene.conf" /etc/nginx/snippets/method-hygiene.conf
 install -m 0644 "$here/nginx/templates/app.vhost.template" /etc/nginx/templates/app.vhost.template
 install -m 0755 "$here/scripts/add-app.sh"               /usr/local/bin/add-app
 

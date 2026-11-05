@@ -1,0 +1,49 @@
+# Web app instance (isolated by Linux user account).
+# Installed as /etc/systemd/system/webapp@.service
+#
+# Each app runs as its own system user (%i), so it can read/write only its own
+# /srv/apps/%i (mode 0700) and nothing belonging to another app. Resource limits
+# (cgroup v2) stop one app starving the others.
+#
+# Start:  systemctl enable --now webapp@<app>.service
+# The app must listen on $PORT (set by add-appuser) bound to the host address.
+
+[Unit]
+Description=Web app %i (isolated)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=/srv/apps/%i
+ExecStart=/srv/apps/%i/run.sh
+Restart=on-failure
+RestartSec=3
+
+# --- isolation ---
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+LockPersonality=yes
+ReadWritePaths=/srv/apps/%i
+
+# --- resource limits (cgroup v2) ---
+CPUQuota=100%
+MemoryMax=512M
+TasksMax=256
+
+# --- logging ---
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

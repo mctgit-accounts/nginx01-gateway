@@ -17,6 +17,10 @@ Last updated: 2026-11-04
 - **App tier `webserver01`** built (10.100.200.70, single NIC, autostart on) and
   hardened — see `docs/webserver01-BUILD-NOTES.md`. Containment verified:
   `canary -> app:8080` blocked; egress OK.
+- **Edge→app hardening** — nginx overwrites client-supplied forwarding headers
+  (spoof-proof), hides banners, rejects TRACE/TRACK.
+- **App isolation** — per-app Unix accounts + systemd hardening/limits
+  (ADR 0008), verified.
 - **Config of record** — this repo.
 
 ## Open
@@ -73,7 +77,12 @@ ADR 0005. Placement, sizing, backups to decide.
 `mct-opencode` runs a parallel Caddy front door (`mct-publish`). Decide whether
 the nginx gateway supersedes it or they coexist.
 
-### 8. Not yet addressed
+### 8. Dedicated edge↔app hop segment — planned (2026-11-05)
+Give the nginx↔app link its own point-to-point subnet (e.g. `10.20.40.0/30`) so
+app ports are reachable **only** from nginx — removes the shared-subnet
+lateral-movement caveat (ADR 0003). Needs a WatchGuard VLAN + host/switch work.
+
+### 9. Not yet addressed
 - Gateway HA (single point of failure); backups for gateway config/state.
 - Monitoring/alerting for certificate expiry and app health.
 - Repo rename to reflect the broader scope (needs repo-admin).

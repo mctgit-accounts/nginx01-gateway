@@ -35,7 +35,8 @@ covers the **whole gateway infrastructure and its security model**.
 ```
 deploy/
   nginx/        log format, map, limits, catch-all, snippets, vhost template
-  scripts/      install.sh, add-app.sh, harden.sh
+  scripts/      install.sh, add-app.sh, harden.sh, install-app-isolation.sh, add-appuser.sh
+  systemd/      webapp@.service (per-app isolated unit)
   fail2ban/     jail.local + nginx-gateway-json filter
   acme/         DreamHost DNS-01 hooks, issue.sh, deploy-hook.sh
   wazuh/        agent localfile blocks + manager decoder/rules

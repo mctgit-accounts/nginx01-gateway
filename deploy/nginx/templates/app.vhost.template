@@ -4,6 +4,8 @@ server {
     listen 80;
     listen [::]:80;
     server_name @@HOSTNAME@@;
+    server_tokens off;
+    include snippets/method-hygiene.conf;
     location / { return 301 https://$host$request_uri; }
 }
 
@@ -12,6 +14,8 @@ server {
     listen [::]:443 ssl;
     http2 on;
     server_name @@HOSTNAME@@;
+    server_tokens off;
+    include snippets/method-hygiene.conf;
 
     ssl_certificate     /etc/nginx/ssl/mankatotech/fullchain.pem;
     ssl_certificate_key /etc/nginx/ssl/mankatotech/privkey.pem;
