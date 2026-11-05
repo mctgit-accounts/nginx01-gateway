@@ -24,8 +24,8 @@ covers the **whole gateway infrastructure and its security model**.
 | Component | Address | State |
 |---|---|---|
 | `nginx01-gateway` (edge/DMZ) | 10.20.30.51 / 192.168.0.51 | **live** — nginx 1.28.3, wildcard TLS, fail2ban, ufw |
-| `app1.mankatotech.com` | edge static (`/var/www/app1`) | **live** — temporary edge copy; app-tier copy staged on `webserver01` |
-| `app2..app5.mankatotech.com` | → 64.61.212.98 | DNS live; **no backends yet** |
+| `app1.mankatotech.com` | `webserver01` (`10.100.200.130:8080`) | **live** — proxied by the edge; WatchGuard edge→app rule in place |
+| `app2..app5.mankatotech.com` | → 64.61.212.98 | DNS live; **no backends yet** — add via `add-appuser` + `add-app` |
 | Wazuh agent on the gateway | — | **pending** — enrollment broker unreachable |
 | `webserver01` (app tier) | 10.100.200.130 | **live** — hardened, containment verified (see `docs/webserver01-BUILD-NOTES.md`) |
 | PostgreSQL (data tier) | TBD | **planned** |

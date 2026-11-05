@@ -66,7 +66,8 @@ sudo VIRTINSTALL_OSINFO_DISABLE_REQUIRE=1 virt-install --name webserver01 \
 ```
 
 ## Open / next
-- WatchGuard: allow edge `10.20.30.51` → app `10.100.200.130` : app ports (8080–8099).
+- ~~WatchGuard: allow edge `10.20.30.51` → app ports (8080–8099)~~ — **done
+  2026-11-05**; `app1` is proxied via the app tier.
 - WatchGuard: confirm app → internet egress for builds.
 - Install app runtime (Node LTS and/or Docker).
 - Ship app logs to Wazuh.

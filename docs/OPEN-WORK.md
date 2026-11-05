@@ -14,7 +14,7 @@ Last updated: 2026-11-05
 - **Edge hardening** — ufw (SSH LAN-only, 80/443 public-only) + fail2ban
   (external-scoped, 4 jails).
 - **DNS** — DreamHost zone published; `app1..app5` → `64.61.212.98`.
-- **App tier `webserver01`** built (10.100.200.70, single NIC, autostart on) and
+- **App tier `webserver01`** built (10.100.200.130/26, single NIC, autostart on) and
   hardened — see `docs/webserver01-BUILD-NOTES.md`. Containment verified:
   `canary -> app:8080` blocked; egress OK.
 - **Edge→app hardening** — nginx overwrites client-supplied forwarding headers
@@ -22,10 +22,11 @@ Last updated: 2026-11-05
 - **App isolation** — per-app Unix accounts + systemd hardening/limits
   (ADR 0008), verified.
 - **Config of record** — this repo.
-- **First app (`app1`)** — static page deployed 2026-11-05. Because the edge
-  cannot reach the app tier yet, it currently runs from the gateway
-  (`/var/www/app1`); an isolated `app1` copy is staged on `webserver01`
-  (`10.100.200.130:8080`) ready to cut over once item 2 is done.
+- **First app (`app1`)** — live on the app tier since 2026-11-05: nginx proxies
+  it to `webserver01` (`10.100.200.130:8080`, isolated user `app1`) through the
+  WatchGuard edge→app rule; the temporary edge copy was retired.
+- **WatchGuard edge → app tier** — allow `10.20.30.51` → `10.100.200.130`,
+  TCP 8080–8099, added 2026-11-05; verified end-to-end (app1 public HTTPS 200).
 
 ## Open
 
@@ -58,42 +59,31 @@ home — it also removes the multi-homing asymmetry. (Scoping rationale:
 Then: install `wazuh-agent` on the gateway, enroll, add
 `deploy/wazuh/localfiles.conf` + the manager decoder/rules.
 
-### 2. WatchGuard: edge → app tier
-`webserver01` is built but the edge cannot reach it yet (verified blocked).
-Add: allow **`10.20.30.51` → `10.100.200.130` : app ports** (8080–8099 for now).
-`app1` is waiting on this to move from its temporary edge copy to the app tier.
-
-### 3. App runtime on `webserver01`
+### 2. App runtime on `webserver01`
 Install Node LTS and/or Docker; ship app logs to Wazuh.
 
-### 4. PostgreSQL data tier — planned
+### 3. PostgreSQL data tier — planned
 ADR 0005. Placement, sizing, backups to decide.
 
-### 5. First real app
-`app1` is live (temporary edge copy while rule 2 is pending). The app-tier
-version is already staged and runs as isolated user `app1` on `webserver01`.
-When rule 2 is in place, cut over to the app tier: remove the edge vhost
-(`/etc/nginx/conf.d/app1.mankatotech.com.conf`) and render the proxy vhost:
+### 4. Remaining apps `app2..app5`
+No backends yet. Each follows the same pattern: build on `webserver01`
+(`sudo add-appuser appN <port>`), then on the gateway
+`sudo add-app appN 10.100.200.130:<port>` — no WatchGuard work needed
+(covered by the 8080–8099 rule). Add each app's DNS record at DreamHost.
 
-```
-sudo add-app app1 10.100.200.130:8080
-```
+### 5. WatchGuard (user)
+- Reserve `10.20.30.51` + `192.168.0.51` in DHCP (still open).
 
-### 6. WatchGuard (user)
-- Reserve `10.20.30.51` + `192.168.0.51` in DHCP.
-- Confirm `64.61.212.98` is bound for **inbound** DNAT.
-- Add rules 1 and 2 above.
-
-### 7. Front-door consolidation
+### 6. Front-door consolidation
 `mct-opencode` runs a parallel Caddy front door (`mct-publish`). Decide whether
 the nginx gateway supersedes it or they coexist.
 
-### 8. Dedicated edge↔app hop segment — planned (2026-11-05)
+### 7. Dedicated edge↔app hop segment — planned (2026-11-05)
 Give the nginx↔app link its own point-to-point subnet (e.g. `10.20.40.0/30`) so
 app ports are reachable **only** from nginx — removes the shared-subnet
 lateral-movement caveat (ADR 0003). Needs a WatchGuard VLAN + host/switch work.
 
-### 9. Not yet addressed
+### 8. Not yet addressed
 - Gateway HA (single point of failure); backups for gateway config/state.
 - Monitoring/alerting for certificate expiry and app health.
 - Repo rename to reflect the broader scope (needs repo-admin).
