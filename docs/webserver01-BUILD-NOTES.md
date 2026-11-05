@@ -13,12 +13,13 @@ name. See `docs/webserver01-build-plan.md` and ADRs 0002/0003/0004.
 - UEFI/q35; one NIC (single-homed on the app tier)
 
 ## Network
-- `enp1s0` (macvtap on host `eno2`, MAC `52:54:00:0e:71:01`): **`10.100.200.70/24`**,
-  gw `10.100.200.1`. App tier / internal network.
+- `enp1s0` (macvtap on host `eno2.103`, MAC `52:54:00:0e:71:01`): **`10.100.200.130/26`**,
+  gw `10.100.200.129` (VLAN 103, `WEB-App-02`). App tier / internal network.
+  Re-IPed from `10.100.200.70/24` during the 2026-11-05 VLAN migration.
 - No LAN interface — management via the hypervisor host (ADR 0004).
 
 ## Access
-- SSH: `ssh -i ~/vms/webserver01/id_webserver01 brian@10.100.200.70`
+- SSH: `ssh -i ~/vms/webserver01/id_webserver01 brian@10.100.200.130`
   (from the automation host, same subnet)
 - Console: `virsh -c qemu:///system console webserver01`
 - Images: `/var/lib/libvirt/images/webserver01.qcow2` + `-seed.iso`

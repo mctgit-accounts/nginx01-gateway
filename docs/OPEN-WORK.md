@@ -3,7 +3,7 @@
 Running queue for the web gateway infrastructure & security build. Update as
 items close.
 
-Last updated: 2026-11-04
+Last updated: 2026-11-05
 
 ## Done
 
@@ -22,6 +22,10 @@ Last updated: 2026-11-04
 - **App isolation** — per-app Unix accounts + systemd hardening/limits
   (ADR 0008), verified.
 - **Config of record** — this repo.
+- **First app (`app1`)** — static page deployed 2026-11-05. Because the edge
+  cannot reach the app tier yet, it currently runs from the gateway
+  (`/var/www/app1`); an isolated `app1` copy is staged on `webserver01`
+  (`10.100.200.130:8080`) ready to cut over once item 2 is done.
 
 ## Open
 
@@ -56,7 +60,8 @@ Then: install `wazuh-agent` on the gateway, enroll, add
 
 ### 2. WatchGuard: edge → app tier
 `webserver01` is built but the edge cannot reach it yet (verified blocked).
-Add: allow **`10.20.30.51` → `10.100.200.70` : app ports** (8080–8099 for now).
+Add: allow **`10.20.30.51` → `10.100.200.130` : app ports** (8080–8099 for now).
+`app1` is waiting on this to move from its temporary edge copy to the app tier.
 
 ### 3. App runtime on `webserver01`
 Install Node LTS and/or Docker; ship app logs to Wazuh.
@@ -65,8 +70,14 @@ Install Node LTS and/or Docker; ship app logs to Wazuh.
 ADR 0005. Placement, sizing, backups to decide.
 
 ### 5. First real app
-`app1..app5` hit the catch-all. Once rules 2–3 are done:
-`sudo add-app app1 10.100.200.70:<port>`.
+`app1` is live (temporary edge copy while rule 2 is pending). The app-tier
+version is already staged and runs as isolated user `app1` on `webserver01`.
+When rule 2 is in place, cut over to the app tier: remove the edge vhost
+(`/etc/nginx/conf.d/app1.mankatotech.com.conf`) and render the proxy vhost:
+
+```
+sudo add-app app1 10.100.200.130:8080
+```
 
 ### 6. WatchGuard (user)
 - Reserve `10.20.30.51` + `192.168.0.51` in DHCP.
