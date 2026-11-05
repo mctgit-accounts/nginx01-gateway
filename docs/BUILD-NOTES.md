@@ -19,6 +19,13 @@ existing Caddy front door on `mct-opencode` (10.20.30.50); does not replace it.
 - `chat0` (macvtap on host `eno3`, MAC `52:54:00:0e:51:02`): `192.168.0.51/24`,
   gw `192.168.0.1` (metric 100). **PRIVATE side**, office LAN. Admin/SSH here only.
 - Default route prefers chat0. DNS 1.1.1.1/8.8.8.8.
+- **Static route to the SIEM VLAN (added 2026-11-05):**
+  `10.100.200.0/26 via 10.20.30.1 dev web0` in `/etc/netplan/50-cloud-init.yaml`.
+  Reason: the metric-100 default sent VLAN100 traffic out `chat0` (LAN), where
+  the WatchGuard's LAN→VLAN100 policy drops it. With the static route, edge→SIEM
+  traffic sources from the DMZ address `10.20.30.51` and matches the WatchGuard
+  rule. Verified: `http://10.100.200.50:8080/healthz` → 200, and the
+  `enrollment.mankatotech.com` vhost proxies 200.
 - **First-boot caveat (known estate flakiness):** cloud-init failed to rename the
   first NIC (`[busy] Error renaming mac=...5101 from enp1s0 to web0`), so web0 came
   up as `enp1s0` with a DHCP address (`10.20.30.45`). Fix applied:
@@ -81,8 +88,10 @@ sudo VIRTINSTALL_OSINFO_DISABLE_REQUIRE=1 virt-install --name nginx01-gateway \
 ## Open / next
 - **Wazuh agent** — install + enroll, then add the localfile blocks
   (`deploy/wazuh/localfiles.conf`) and the manager decoder/rules
-  (`deploy/wazuh/manager-decoder-and-rules.xml`). BLOCKED: the enrollment broker
-  `10.100.200.100:8443` is not reachable from the gateway (1514 is).
+  (`deploy/wazuh/manager-decoder-and-rules.xml`). The enrollment broker now runs
+  on the SIEM (`mct-enrollment` container) and is reachable from the gateway via
+  the local vhost `https://enrollment.mankatotech.com/` (verified 2026-11-05);
+  the old `10.100.200.100:8443` address is retired.
 - WatchGuard (user): reserve `10.20.30.51` + `192.168.0.51` in DHCP; confirm
   `64.61.212.98` is bound for inbound DNAT.
 - Real apps: point `app1..app5` at backends with `sudo add-app <app> <host:port>`.
